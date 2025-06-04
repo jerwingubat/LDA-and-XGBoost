@@ -23,7 +23,6 @@ def main():
     nltk.download('stopwords', quiet=True)
     stop_words = set(stopwords.words('english'))
     
-    #nilagay ko lang po to dahil hindi po UTF-8 and encoding po ng dataset
     try:
         df = pd.read_csv("Fully_Cleaned_Student_Performance_Data.csv", encoding='cp1252')
     except UnicodeDecodeError:
@@ -150,12 +149,29 @@ def main():
     print("\nClassification Report:")
     print(classification_report(y_test, y_pred, target_names=le.classes_))
 
+    #XGBoost built-in plot
     plt.figure(figsize=(12, 8))
-    plot_importance(xgb_model, max_num_features=15, importance_type='weight')
-    plt.title("XGBoost Feature Importance")
+    plot_importance(xgb_model, max_num_features=15, importance_type='gain')
+    plt.title("XGBoost Feature Importance (gain)")
     plt.tight_layout()
-    plt.savefig('feature_importance.png')
-    plt.close()
+    plt.savefig('feature_importance_gain.png')
+    plt.show()
+
+    #seaborn barplot
+    importance_gain = xgb_model.get_booster().get_score(importance_type='gain')
+    importance_df = pd.DataFrame({
+        'Feature': list(importance_gain.keys()),
+        'Importance': list(importance_gain.values())
+    }).sort_values(by='Importance', ascending=False)
+
+    plt.figure(figsize=(10, 6))
+    sns.barplot(data=importance_df.head(15), x='Importance', y='Feature', palette='viridis')
+    plt.title('Top 15 Feature Importances by Gain')
+    plt.xlabel('Gain Importance')
+    plt.ylabel('Feature')
+    plt.tight_layout()
+    plt.savefig('feature_importance_barplot.png')
+    plt.show()
 
     conf_matrix = confusion_matrix(y_test, y_pred, labels=le.transform(le.classes_))
     plt.figure(figsize=(10, 8))
@@ -210,13 +226,20 @@ def main():
         topic_words = lda_model.show_topic(i, topn=10)
         words = ", ".join([word for word, _ in topic_words])
         print(f"Topic {i+1}: {words}")
-
-    try:
-        student_id = int(input("\nEnter student index (0-999) for detailed report (or -1 to exit): "))
-        if student_id != -1:
+    while True:
+        user_input = input("\nEnter student index (0 to {}) for detailed report (or 'exit' to quit): ".format(len(df)-1)).strip()
+        if user_input.lower() == 'exit':
+            print("Exiting report viewer.")
+            break
+        if not user_input.isdigit():
+            print("Invalid input! Please enter a valid student index or 'exit'.")
+            continue
+        student_id = int(user_input)
+        if 0 <= student_id < len(df):
             generate_risk_report(student_id)
-    except ValueError:
-        print("Invalid input! Please enter a number between 0-999")
+        else:
+            print(f"Student index out of range! Please enter a number between 0 and {len(df)-1}.")
+
 
     df['Predicted_Academic_Standing'] = le.inverse_transform(xgb_model.predict(X))
     df_final = pd.concat([df_report, df[['Predicted_Academic_Standing']]], axis=1)
