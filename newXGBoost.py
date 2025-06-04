@@ -132,7 +132,7 @@ def main():
     y = df['Academic_Standing_Encoded']
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-    print("Training XGBoost model...")
+    print("Training XGBoost model")
     xgb_model = XGBClassifier(
         n_estimators=200,
         max_depth=5,
